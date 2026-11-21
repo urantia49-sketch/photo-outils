@@ -33,3 +33,33 @@ Exemple :
 python3 outils/check_photo_dates.py \
   "/Users/remi/Library/CloudStorage/SynologyDrive-Photos/2026"
 ```
+
+### `outils/corriger_dossiers.py`
+
+Propose de renommer les dossiers `AAAA-MM-JJ ...` dont la date diffère de la date EXIF
+majoritaire de leurs fichiers (le texte après la date est conservé). **Simulation par défaut** ;
+`--appliquer` effectue les renommages.
+
+```bash
+python3 outils/corriger_dossiers.py <dossier_annee> [--seuil 0.8] [--csv plan.csv] [--appliquer]
+```
+
+- `--seuil` : part minimale des fichiers partageant la date majoritaire (défaut 80 %)
+
+### `outils/trouver_doublons.py`
+
+Détecte les fichiers médias au contenu identique (taille puis SHA-256), récursivement.
+Lecture seule.
+
+```bash
+python3 outils/trouver_doublons.py <dossier> [--csv doublons.csv] [--tous-fichiers]
+```
+
+### `outils/stats_phototheque.py`
+
+Statistiques par année et par type de fichier, dossiers vides ou sans date ; `--exif` ajoute
+la répartition par appareil. Accepte la racine de la photothèque ou un dossier d'année.
+
+```bash
+python3 outils/stats_phototheque.py <photothèque_ou_année> [--exif]
+```
