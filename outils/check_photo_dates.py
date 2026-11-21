@@ -17,7 +17,11 @@ import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
+
+RESULTATS_DIR = Path(__file__).resolve().parent.parent / "resultats"
+LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 
 DATE_DIR_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")
 
@@ -41,7 +45,9 @@ def parse_args():
     p.add_argument("root", type=Path, help="Dossier racine contenant les sous-dossiers AAAA-MM-JJ (ex: le dossier 2026)")
     p.add_argument("--tolerance", type=int, default=0,
                    help="Écart en jours toléré entre la date du dossier et la date EXIF majoritaire (défaut: 0)")
-    p.add_argument("--csv", type=Path, default=None, help="Écrit le détail des fichiers incohérents dans ce fichier CSV")
+    p.add_argument("--csv", type=Path, default=None,
+                   help="Nom (ou chemin) du fichier CSV où écrire le détail des fichiers incohérents. "
+                        f"Les chemins relatifs sont placés dans {RESULTATS_DIR}")
     return p.parse_args()
 
 
@@ -103,22 +109,30 @@ def main():
         print(f"Aucun dossier au format AAAA-MM-JJ trouvé dans {root}")
         return
 
+    log_lines = []
+
+    def log(msg=""):
+        print(msg)
+        log_lines.append(msg)
+
     csv_rows = []
     total_issues = 0
+    total_ok = 0
 
-    print(f"Analyse de {len(folders)} dossier(s) dans {root}\n")
+    now = datetime.now()
+    log(f"Analyse de {len(folders)} dossier(s) dans {root} — {now:%Y-%m-%d %H:%M:%S}\n")
 
     for folder, folder_date in folders:
         results = read_dates_exiftool(folder)
         if not results:
-            print(f"⚠️  {folder.name}: aucun fichier média trouvé")
+            log(f"⚠️  {folder.name}: aucun fichier média trouvé")
             continue
 
         no_exif = [name for name, d in results if d is None]
         dated = [(name, d) for name, d in results if d is not None]
 
         if not dated:
-            print(f"⚠️  {folder.name}: aucune date EXIF lisible sur {len(results)} fichier(s)")
+            log(f"⚠️  {folder.name}: aucune date EXIF lisible sur {len(results)} fichier(s)")
             total_issues += 1
             continue
 
@@ -146,31 +160,39 @@ def main():
             status_bits.append(f"{len(no_exif)} fichier(s) sans date EXIF")
 
         if not status_bits:
-            print(f"✅ {folder.name}: OK ({len(dated)} fichiers, tous datés {folder_date})")
+            log(f"✅ {folder.name}: OK ({len(dated)} fichiers, tous datés {folder_date})")
+            total_ok += 1
             continue
 
         total_issues += 1
-        print(f"❌ {folder.name} (attendu {folder_date}): " + "; ".join(status_bits))
+        log(f"❌ {folder.name} (attendu {folder_date}): " + "; ".join(status_bits))
 
         # Détail des dates rencontrées
         other_dates = {d: c for d, c in date_counts.items() if d != folder_date}
         if other_dates:
             detail = ", ".join(f"{d} ({c}x)" for d, c in sorted(other_dates.items()))
-            print(f"    dates EXIF trouvées: {detail}")
+            log(f"    dates EXIF trouvées: {detail}")
 
         for name, d in mismatches:
             csv_rows.append([folder.name, folder_date, name, d])
         for name in no_exif:
             csv_rows.append([folder.name, folder_date, name, "SANS_EXIF"])
 
-    print(f"\n{total_issues} dossier(s) sur {len(folders)} présentent une incohérence.")
+    log(f"\n{total_issues} dossier(s) sur {len(folders)} présentent une incohérence ({total_ok} OK).")
 
     if args.csv and csv_rows:
-        with open(args.csv, "w", newline="", encoding="utf-8") as f:
+        csv_path = args.csv if args.csv.is_absolute() else RESULTATS_DIR / args.csv
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             w.writerow(["dossier", "date_dossier", "fichier", "date_exif"])
             w.writerows(csv_rows)
-        print(f"Détail écrit dans {args.csv}")
+        log(f"Détail écrit dans {csv_path}")
+
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOGS_DIR / f"{root.name}_{now:%Y%m%d_%H%M%S}.log"
+    log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+    print(f"Synthèse écrite dans {log_path}")
 
 
 if __name__ == "__main__":

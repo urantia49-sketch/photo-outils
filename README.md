@@ -21,7 +21,11 @@ python3 outils/check_photo_dates.py <dossier_racine> [--tolerance N] [--csv sort
 
 - `<dossier_racine>` : dossier contenant les sous-dossiers datés (ex: le dossier d'une année)
 - `--tolerance N` : écart en jours toléré avant de signaler une incohérence (défaut: 0)
-- `--csv sortie.csv` : exporte le détail des fichiers en incohérence
+- `--csv sortie.csv` : exporte le détail des fichiers en incohérence. Les chemins relatifs sont
+  écrits dans `resultats/` (créé automatiquement) ; utilisez un chemin absolu pour écrire ailleurs.
+
+À chaque exécution, une synthèse de l'analyse (identique à la sortie console) est aussi écrite
+dans `logs/<dossier_racine>_<horodatage>.log` (créé automatiquement).
 
 Exemple :
 
